@@ -1,0 +1,14 @@
+# Build output
+build/
+build_*/
+*.o
+*.obj
+*.elf
+*.bin
+*.map
+*.dis
+compile_commands.json
+
+# Editor and tooling caches
+.cache/
+.vscode/
