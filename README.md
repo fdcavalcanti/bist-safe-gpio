@@ -31,11 +31,15 @@ Requires an ESP-BIST checkout (`ESP_BIST_PATH`), ESP-IDF (for headers and ROM su
 export IDF_PATH=/path/to/esp-idf
 export MCUBOOT_PATH=/path/to/mcuboot
 export ESP_BIST_PATH=/path/to/esp-bist
-export PATH="$IDF_PATH/../.espressif/tools/riscv32-esp-elf/<version>/riscv32-esp-elf/bin:$PATH"
+
+# Cross toolchain. Any IDF-installed riscv32-esp-elf release works.
+export PATH="$HOME/.espressif/tools/riscv32-esp-elf/<version>/riscv32-esp-elf/bin:$PATH"
 
 cmake -GNinja -B build -DSOC_TARGET=esp32p4 .
 ninja -C build
 ```
+
+The build also needs `imgtool` (MCUboot image signing) and `python` on `PATH`.
 
 The build produces a signed application image plus `flasher_args.json` in `build/`.
 
