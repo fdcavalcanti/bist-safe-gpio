@@ -59,7 +59,7 @@ I (xxx) safe_gpio_example: Contact closed, actuator energised
 
 ## Behaviour
 
-Startup configures the outputs de-energised, initialises the driver, runs a reciprocal read of both pads, then starts a 200 ms watchdog and a 5 ms supervision loop.
+Startup configures the outputs de-energised, initialises the driver, runs a reciprocal read of both pads, then starts a 200 ms watchdog and a 1 ms supervision loop.
 
 Each loop sample calls `bist_gpio_input_reciprocal_test()` for pin A and pin B. The accepted level is taken from the Core 0 evidence slot, so the value the application uses is the value both cores agreed on. A failed reciprocal read latches `SAFE_GPIO_FAULT_BIST_CORE_MISMATCH`.
 
@@ -78,13 +78,17 @@ bist_safe_gpio/
 │   ├── include/safe_gpio_core.h   skew filter interface
 │   ├── safe_gpio.c                reciprocal reads, GPIO setup, fault reporting
 │   └── safe_gpio_core.c           framework-free discrepancy filter
-└── tests/unit/safe_gpio_core/     host-native filter tests
+└── tests/unit/
+    ├── safe_gpio_core/     filter rules (no stubs needed)
+    └── safe_gpio_driver/   driver decisions, with ESP-BIST headers stubbed
 ```
 
-`safe_gpio_core.c` performs no hardware access, so the skew and latch rules run under a host compiler:
+Both test directories are host-native and need no target. `safe_gpio_core.c` performs no hardware access. `safe_gpio.c` is tested against stubs that expose only the two facts it consumes: whether the reciprocal read passed, and which level Core 0 recorded.
 
 ```sh
-cmake -S tests/unit/safe_gpio_core -B build_unit
-cmake --build build_unit
-ctest --test-dir build_unit --output-on-failure
+cmake -S tests/unit/safe_gpio_core -B build/core && cmake --build build/core
+ctest --test-dir build/core --output-on-failure
+
+cmake -S tests/unit/safe_gpio_driver -B build/driver && cmake --build build/driver
+ctest --test-dir build/driver --output-on-failure
 ```

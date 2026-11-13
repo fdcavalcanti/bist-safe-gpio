@@ -16,7 +16,7 @@
  * | Actuator enable | 4    | Output, high only while the contact is closed |
  * | Fault indicator | 5    | Output, high while a fault is latched       |
  *
- * Flow: post-boot reciprocal self-test of both input pads, then a 5 ms
+ * Flow: post-boot reciprocal self-test of both input pads, then a 1 ms
  * supervision loop that samples through ESP-BIST, filters skew, drives the
  * actuator, and feeds the watchdog. Any fault drops the actuator and latches.
  */
@@ -35,8 +35,9 @@
 #include "safe_gpio.h"
 #include "wdt.h"
 
-/* Pins match the article's breadboard harness. Override with -D on the
- * compiler command line if your board wires them differently. */
+/* Pin defaults match the article's breadboard harness. The CMake project passes
+ * all four as -D definitions from cache variables such as -DSAFE_GPIO_PIN_A=20,
+ * so a different harness needs no source edit. */
 #ifndef SAFE_GPIO_PIN_A
 #define SAFE_GPIO_PIN_A 2
 #endif
@@ -50,10 +51,10 @@
 #define SAFE_GPIO_FAULT_LED_PIN 5
 #endif
 
-/* One full sample of both pins takes a few microseconds of dispatch. At 5 ms
- * the worst-case discrepancy reaction is the 20 ms skew window plus one
- * period, inside the article's 25 ms budget. */
-#define SUPERVISION_PERIOD_US 5000
+/* One full sample of both pins is four blocking core-1 dispatches plus two
+ * local comparisons, which costs tens of microseconds. A 1 ms period keeps the
+ * worst-case discrepancy reaction at the 20 ms window plus one period. */
+#define SUPERVISION_PERIOD_US 1000
 
 /* Mechanical contacts need a window that covers bounce and contact transit
  * skew; 20 ms is the value validated in the article's bench matrix. */
@@ -62,6 +63,7 @@
 static const char *TAG = "safe_gpio_example";
 
 static volatile bool s_wdt_expired;
+static bool s_wdt_armed;
 
 /* Register-level writes so this is safe from the watchdog interrupt, where the
  * driver functions must not be called. */
@@ -83,12 +85,19 @@ static void IRAM_ATTR on_wdt_timeout(void *arg)
     s_wdt_expired = true;
 }
 
+/*
+ * Terminal safe state. The watchdog stays fed so the board holds the lockout
+ * instead of resetting in a loop; the indicator remains lit for the operator.
+ */
 static void fail_safe_exit(const char *reason)
 {
     drive_fail_safe();
     ESP_LOGE(TAG, "Fail-safe stop: %s", reason);
     while (1) {
-        __asm__ __volatile__("wfi");
+        if (s_wdt_armed) {
+            wdt_feed();
+        }
+        ets_delay_us(1000);
     }
 }
 
@@ -173,6 +182,7 @@ int main(void)
     if (wdt_init(CONFIG_ESP_BIST_WDT_TIMEOUT_US) != 0) {
         fail_safe_exit("watchdog initialisation failed");
     }
+    s_wdt_armed = true;
     wdt_register_callback(on_wdt_timeout, NULL);
 
     safe_gpio_state_t state = SAFE_GPIO_STATE_OPEN;
@@ -184,9 +194,8 @@ int main(void)
 
         if (safe_gpio_sample(&state) != ESP_OK) {
             /* The fault is latched and the callback already dropped the
-             * actuator. Hold the lockout, keep the indicator lit, and stay in
-             * a fed loop so the bench operator can observe the fault. */
-            break;
+             * actuator. */
+            fail_safe_exit(safe_gpio_fault_name(safe_gpio_get_fault()));
         }
 
         bool closed = (state == SAFE_GPIO_STATE_CLOSED);
@@ -200,15 +209,9 @@ int main(void)
         wdt_feed();
 
         if (s_wdt_expired) {
-            fail_safe_exit("watchdog callback fired");
+            fail_safe_exit("watchdog timeout");
         }
 
         wait_until(next_sample_us);
-    }
-
-    ESP_LOGE(TAG, "Lockout: actuator de-energised, reset the board to clear");
-    while (1) {
-        wdt_feed();
-        ets_delay_us(1000);
     }
 }
