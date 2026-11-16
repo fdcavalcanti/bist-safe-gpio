@@ -4,7 +4,7 @@
 # ESP-BIST standalone application (bare metal, no ESP-IDF build system).
 #
 # Point ESP_BIST_PATH at an ESP-BIST checkout, then:
-#   cmake -GNinja -B build -DSOC_TARGET=esp32p4 -DCMAKE_BUILD_TYPE=Release .
+#   cmake -GNinja -B build -DSOC_TARGET=esp32p4 .
 #   ninja -C build
 
 cmake_minimum_required(VERSION 3.22)
@@ -38,21 +38,7 @@ include(${BIST_ROOT_DIR}/cmake/project.cmake)
 
 project(safe_gpio LANGUAGES C ASM)
 
-# Pin assignment from the article's breadboard harness. Override at configure
-# time, e.g. -DSAFE_GPIO_PIN_A=20.
-set(SAFE_GPIO_PIN_A 2 CACHE STRING "Active-low input pin, externally pulled up")
-set(SAFE_GPIO_PIN_B 3 CACHE STRING "Complementary input pin, externally pulled down")
-set(SAFE_GPIO_ACTUATOR_PIN 4 CACHE STRING "Actuator enable output")
-set(SAFE_GPIO_FAULT_LED_PIN 5 CACHE STRING "Fault indicator output")
-
 target_include_directories(${APP_EXECUTABLE} PRIVATE
     ${APP_MAIN_DIR}
     ${APP_DRIVER_DIR}/include
-)
-
-target_compile_definitions(${APP_EXECUTABLE} PRIVATE
-    SAFE_GPIO_PIN_A=${SAFE_GPIO_PIN_A}
-    SAFE_GPIO_PIN_B=${SAFE_GPIO_PIN_B}
-    SAFE_GPIO_ACTUATOR_PIN=${SAFE_GPIO_ACTUATOR_PIN}
-    SAFE_GPIO_FAULT_LED_PIN=${SAFE_GPIO_FAULT_LED_PIN}
 )

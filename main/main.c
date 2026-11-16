@@ -30,14 +30,11 @@
 #include "esp_attr.h"
 #include "esp_timer.h"
 #include "gpio.h"
-#include "hal/gpio_ll.h"
 #include "rom/ets_sys.h"
 #include "safe_gpio.h"
 #include "wdt.h"
 
-/* Pin defaults match the article's breadboard harness. The CMake project passes
- * all four as -D definitions from cache variables such as -DSAFE_GPIO_PIN_A=20,
- * so a different harness needs no source edit. */
+/* Pin definitions match the breadboard harness. */
 #ifndef SAFE_GPIO_PIN_A
 #define SAFE_GPIO_PIN_A 2
 #endif
@@ -65,13 +62,11 @@ static const char *TAG = "safe_gpio_example";
 static volatile bool s_wdt_expired;
 static bool s_wdt_armed;
 
-/* Register-level writes so this is safe from the watchdog interrupt, where the
- * driver functions must not be called. */
+/* Drive actuator off and assert the fault indicator. */
 static void IRAM_ATTR drive_fail_safe(void)
 {
-    gpio_dev_t *hw = GPIO_LL_GET_HW(0);
-    gpio_ll_set_level(hw, SAFE_GPIO_ACTUATOR_PIN, 0);
-    gpio_ll_set_level(hw, SAFE_GPIO_FAULT_LED_PIN, 1);
+    gpio_set_level(SAFE_GPIO_ACTUATOR_PIN, 0);
+    gpio_set_level(SAFE_GPIO_FAULT_LED_PIN, 1);
 }
 
 /*

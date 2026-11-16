@@ -1,6 +1,6 @@
 # ESP-BIST Safe GPIO (IEC 60730 Class C, ESP32-P4)
 
-An ESP-BIST standalone application that supervises one mechanical contact wired to two GPIO pins. Each pin level is read by the dual-core reciprocal GPIO input test from ESP-BIST, so both HP cores sample the same pad and cross-check their evidence before the level is used. The two validated levels are then compared inside a bounded skew window; a stuck, shorted, bridged, or broken input latches a fault and drops the actuator.
+An ESP-BIST standalone application that supervises one signal input wired to two GPIO pins. Each pin level is read by the dual-core reciprocal GPIO input test from ESP-BIST, so both HP cores sample the same pad and cross-check their evidence before the level is used. The two validated levels are then compared inside a bounded skew window; a stuck, shorted, bridged, or broken input latches a fault and drops the actuator.
 
 The application runs bare metal on the ESP-BIST standalone build (no ESP-IDF application build system, no FreeRTOS). ESP-BIST brings up HP core 1 during startup, which is what the reciprocal reads dispatch to.
 
@@ -15,17 +15,9 @@ The application runs bare metal on the ESP-BIST standalone build (no ESP-IDF app
 
 Normal levels in complementary mode are `(A, B) = (1, 0)` open and `(0, 1)` closed. Any other pair persisting past the 20 ms discrepancy window latches `SAFE_GPIO_FAULT_DISCREPANCY`.
 
-Pin numbers are CMake cache variables, so a different harness needs no source edit:
-
-```sh
-cmake -GNinja -B build -DSOC_TARGET=esp32p4 \
-      -DSAFE_GPIO_PIN_A=20 -DSAFE_GPIO_PIN_B=21 \
-      -DSAFE_GPIO_ACTUATOR_PIN=22 -DSAFE_GPIO_FAULT_LED_PIN=23 .
-```
-
 ## Build
 
-Requires an ESP-BIST checkout (`ESP_BIST_PATH`), ESP-IDF (for headers and ROM support files), and `kconfig-frontends`.
+Requires an [ESP-BIST](https://github.com/espressif/esp-bist) checkout (`ESP_BIST_PATH`), ESP-IDF (for headers and ROM support files), and `kconfig-frontends`. It is suggested to use the dev container provided by the ESP-BIST repository, which comes with the required environment, toolchains, and tools pre-configured.
 
 ```sh
 export IDF_PATH=/path/to/esp-idf
