@@ -8,8 +8,8 @@ The application runs bare metal on the ESP-BIST standalone build (no ESP-IDF app
 
 | Signal          | GPIO | Bias                                                     |
 |-----------------|------|----------------------------------------------------------|
-| Pin A           | 2    | 10 kOhm pull-up to 3V3; contact closes to GND            |
-| Pin B           | 3    | 10 kOhm pull-down to GND; complementary contact or inverter |
+| Pin A           | 2    | Internal pull-up to 3V3; contact closes to GND           |
+| Pin B           | 3    | Internal pull-down to GND; complementary contact or inverter |
 | Actuator enable | 4    | Output; high only while the contact is closed             |
 | Fault indicator | 5    | Output; high while a fault is latched                     |
 
@@ -48,14 +48,14 @@ ninja -C build monitor
 Expected output:
 
 ```
-I (xxx) safe_gpio_example: Post-boot reciprocal self-test passed on GPIO 2 and GPIO 3
+I (xxx) safe_gpio_example: Post-boot GPIO input self-test passed on GPIO 2 and GPIO 3
 I (xxx) safe_gpio: Supervising GPIO 2 and GPIO 3 (complementary), skew window 20 ms
 I (xxx) safe_gpio_example: Contact closed, actuator energised
 ```
 
 ## Behaviour
 
-Startup configures the outputs de-energised, initialises the driver, runs a reciprocal read of both pads, then starts a 200 ms watchdog and a 1 ms supervision loop.
+Startup configures the outputs de-energised, runs `bist_gpio_input_test()` on both input pads using their default internal pull-ups, initialises the driver (which enables the internal pull-up on Pin A and internal pull-down on Pin B), then starts a 200 ms watchdog and a 1 ms supervision loop.
 
 Each loop sample calls `bist_gpio_input_reciprocal_test()` for pin A and pin B. The accepted level is taken from the Core 0 evidence slot, so the value the application uses is the value both cores agreed on. A failed reciprocal read latches `SAFE_GPIO_FAULT_BIST_CORE_MISMATCH`.
 

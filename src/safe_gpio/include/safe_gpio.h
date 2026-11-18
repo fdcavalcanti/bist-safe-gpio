@@ -11,7 +11,7 @@
  *
  * - Each level is read by a dual-core reciprocal ESP-BIST test, so both HP
  *   cores sample the same pad and compare their evidence before the level is
- *   used. That catches pad, GPIO-matrix, and core sampling faults.
+ *   used. That catches per-core read-path and execution faults.
  * - The two resulting levels are checked against the configured relationship
  *   inside a bounded skew window, so wire breaks, shorts, and inter-pin bridges
  *   trip a latched fault that the application turns into a safe state.

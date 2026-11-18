@@ -118,8 +118,10 @@ esp_err_t safe_gpio_init(const safe_gpio_config_t *config)
     s_config = *config;
 
     /* Pin A is always active-low. Pin B follows the mode: active-high in
-     * complementary wiring, active-low in equal wiring. Internal pulls are only
-     * a fallback bias; the external 10 kOhm resistors set the fault behaviour. */
+     * complementary wiring, active-low in equal wiring. Internal pull-ups and
+     * pull-downs provide the default bias so post-boot bist_gpio_input_test()
+     * can run without external pull-down contention; external pull resistors
+     * can also be added when stronger noise immunity is required. */
     gpio_config_t io_conf_a = {
         .pin_bit_mask = BIT64(config->pin_a),
         .mode = GPIO_MODE_INPUT,

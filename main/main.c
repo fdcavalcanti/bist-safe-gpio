@@ -7,16 +7,16 @@
  * @file main.c
  * @brief ESP-BIST powered IEC 60730 Class C safe GPIO example (ESP32-P4)
  *
- * Wiring, all biases external to the SoC:
+ * Wiring (internal pull-up / pull-down enabled by safe_gpio_init()):
  *
  * | Signal          | GPIO | Bias                                        |
  * |-----------------|------|---------------------------------------------|
- * | Pin A           | 2    | 10 kOhm pull-up to 3V3, contact to GND      |
- * | Pin B           | 3    | 10 kOhm pull-down to GND, complementary     |
+ * | Pin A           | 2    | Internal pull-up to 3V3, contact to GND     |
+ * | Pin B           | 3    | Internal pull-down to GND, complementary    |
  * | Actuator enable | 4    | Output, high only while the contact is closed |
  * | Fault indicator | 5    | Output, high while a fault is latched       |
  *
- * Flow: post-boot reciprocal self-test of both input pads, then a 1 ms
+ * Flow: post-boot GPIO input self-test of both input pads, then a 1 ms
  * supervision loop that samples through ESP-BIST, filters skew, drives the
  * actuator, and feeds the watchdog. Any fault drops the actuator and latches.
  */
@@ -122,23 +122,24 @@ static esp_err_t configure_outputs(void)
 }
 
 /*
- * Post-boot check: both pads must agree across the two HP cores before the
- * application starts acting on them. A pin that is stuck, floating, or not
- * readable fails here and the system never energises the actuator.
+ * Post-boot check: bist_gpio_input_test() resets each pad (enabling its
+ * default internal pull-up), configures it as an input, and verifies that it
+ * reads logic high before safe_gpio_init() applies the runtime complementary
+ * pull configuration.
  */
 static void post_boot_self_test(void)
 {
-    bist_esp_err_t ret = bist_gpio_input_reciprocal_test(SAFE_GPIO_PIN_A);
+    bist_esp_err_t ret = bist_gpio_input_test(SAFE_GPIO_PIN_A, 1);
     if (ret != BIST_ESP_OK) {
-        fail_safe_exit("post-boot reciprocal read of pin A failed");
+        fail_safe_exit("post-boot input test of pin A failed");
     }
 
-    ret = bist_gpio_input_reciprocal_test(SAFE_GPIO_PIN_B);
+    ret = bist_gpio_input_test(SAFE_GPIO_PIN_B, 1);
     if (ret != BIST_ESP_OK) {
-        fail_safe_exit("post-boot reciprocal read of pin B failed");
+        fail_safe_exit("post-boot input test of pin B failed");
     }
 
-    ESP_LOGI(TAG, "Post-boot reciprocal self-test passed on GPIO %d and GPIO %d",
+    ESP_LOGI(TAG, "Post-boot GPIO input self-test passed on GPIO %d and GPIO %d",
              SAFE_GPIO_PIN_A, SAFE_GPIO_PIN_B);
 }
 
@@ -160,6 +161,8 @@ int main(void)
         fail_safe_exit("output configuration failed");
     }
 
+    post_boot_self_test();
+
     safe_gpio_config_t safety_conf = {
         .pin_a = SAFE_GPIO_PIN_A,
         .pin_b = SAFE_GPIO_PIN_B,
@@ -171,8 +174,6 @@ int main(void)
     if (err != ESP_OK) {
         fail_safe_exit("safe GPIO initialisation failed");
     }
-
-    post_boot_self_test();
 
     if (wdt_init(CONFIG_ESP_BIST_WDT_TIMEOUT_US) != 0) {
         fail_safe_exit("watchdog initialisation failed");
